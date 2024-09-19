@@ -1,16 +1,25 @@
-name: Pipeline with Jest Test
+name: Pipeline with Build and Jest Test in 2 Jobs
 
 on:
   push:
     branches:
       - main
+
 jobs:
   build:
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v2
       - name: Install dependencies
         run: npm install
-      - name: Run tests
+  tests:
+    runs-on: ubuntu-22.04
+    needs: build # Test-Job wartet, bis der Build-Job erfolgreich ist
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+      - name: Install dependencies
+        run: npm install
+      - name: Run test
         run: npm test
