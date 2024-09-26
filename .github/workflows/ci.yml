@@ -1,38 +1,4 @@
-# name: Pipeline with Build and Jest Test in 2 Jobs
-
-# on:
-#   push:
-#     branches:
-#       - main
-
-# jobs:
-#   build:
-#     runs-on: ubuntu-22.04
-#     steps:
-#       - name: Checkout repository
-#         uses: actions/checkout@v2
-#       - name: Install dependencies
-#         run: npm install
-#       - name: Save node_modules and build folder as artifact
-#         uses: actions/upload-artifact@v3
-#         with:
-#           name: build-artifacts
-#           path: |
-#             node_modules
-#             .next # Falls du Next.js nutzt, andernfalls den entsprechenden Build-Ordner angeben
-
-#   tests:
-#     runs-on: ubuntu-22.04
-#     needs: build # Test-Job wartet, bis der Build-Job erfolgreich ist
-#     steps:
-#       - name: Checkout repository
-#         uses: actions/checkout@v2
-#       - name: Install dependencies
-#         run: npm install
-#       - name: Run test
-#         run: npm test
-
-name: Frontend CI
+name: Pipeline with Jest Test
 
 on:
   push:
@@ -40,24 +6,46 @@ on:
       - main
 
 jobs:
-  jest:
-    runs-on: blacksmith-2vcpu-ubuntu-2204
+  build:
+    runs-on: ubuntu-22.04
+
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
-      - name: Install pnpm
-        uses: pnpm/action-setup@v2
+      - name: Install dependencies
+        run: npm install
+
+      - name: Save node_modules and build
+        uses: actions/upload-artifact@v3
         with:
-          version: 8.x.x
+          name: build-artifacts
+          path: |
+            node_modules
+            .next # Falls du Next.js nutzt, andernfalls den entsprechenden Build-Ordner angeben
 
-      - name: Set up Node.js
-        uses: useblacksmith/setup-node@v5
+  tests:
+    strategy:
+      matrix:
+        shard: [1, 2] # Hier wird der Test in zwei Shards aufgeteilt
+    runs-on: ubuntu-22.04
+    needs: build
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Retrieve build artifacts
+        uses: actions/download-artifact@v3
         with:
-          node-version: 18.12.1
-          cache: pnpm
+          name: build-artifacts
 
-      - name: Install package.json dependencies with pnpm
-        run: pnpm install --frozen-lockfile
-
-      - name: Test with Jest
-        run: npm jest --silent --maxWorkers=2
+      - name: Run Jest Tests in Shard ${{ matrix.shard }}
+        env:
+          JEST_SHARD_INDEX: ${{ matrix.shard }}
+          JEST_TOTAL_SHARDS: 2
+        run: |
+          # Jest Tests in zwei Shards aufteilen und jeweils ausführen
+          jest --shardIndex=$JEST_SHARD_INDEX --shardTotal=$JEST_TOTAL_SHARDS
